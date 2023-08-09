@@ -1,0 +1,50 @@
+Task 01:
+install talisman as pre-commit hook in kubernetes-devops-security git repository.
+
+Solution
+curl https://thoughtworks.github.io/talisman/install.sh > /tmp/install-talisman.sh
+chmod +x /tmp/install-talisman.sh
+cd /root/kubernetes-devops-security
+bash /tmp/install-talisman.sh pre-commit
+
+
+Task 02:
+Remove the high severity files from the repository which are detected by the Talisman scan.
+Configure the Talisman so that it ignores the detected files by checksum which are of medium or low severity, finally commit the changes.
+
+Solution
+Remove the high severity file:
+cd /root/kubernetes-devops-security
+rm -f public/access
+
+Create a file called .talismanrc under kubernetes-devops-security repository and add the files name along with checksum to get these ignored by talisman scan. You can get the checksum from the output when you tried to commit your changes. The .talismanrc file content should be something like as below:
+
+fileignoreconfig:
+- filename: public/info.txt
+  checksum: b058bbb84595454d550863a6ae7fd501863acd9692ec3cc699bc6f76dd0e38a5
+
+Commit your changes:
+git add .
+git commit -m "your commit message"
+
+
+Task 03:
+install talisman as a pre-push hook in the kubernetes-devops-security repository.
+
+Solution
+curl https://thoughtworks.github.io/talisman/install.sh > /tmp/install-talisman.sh
+chmod +x /tmp/install-talisman.sh
+cd /root/kubernetes-devops-security
+bash /tmp/install-talisman.sh
+
+
+Task 04:
+ignore the files from the talisman scan, and push the changes to git repository.
+
+Solution
+Edit the .talismanrc file.
+vi .talismanrc
+
+Add the below changes and push:
+- filename: html/.env
+  checksum: b3edd4020e87cd338eb75c4278c46bce4ac5a492e7d6a4f25fe231c04d8dbe4d]

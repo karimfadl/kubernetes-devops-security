@@ -1,0 +1,119 @@
+Task 01:
+Install OPA version 0.38.1 on the controlplane node, also run in the background.
+
+Solution
+Execute below given commands to install OPA version 0.38.1:
+
+cd /root/
+curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v0.38.1/opa_linux_amd64
+chmod 755 ./opa
+
+To run in the backgroud, run the command as below:
+./opa run -s &
+
+
+Task 02:
+Install the OPA conftest on controlplane node.
+
+Solution
+cd /root/
+LATEST_VERSION=$(wget -O - "https://api.github.com/repos/open-policy-agent/conftest/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | cut -c 2-)
+wget "https://github.com/open-policy-agent/conftest/releases/download/v${LATEST_VERSION}/conftest_${LATEST_VERSION}_Linux_x86_64.tar.gz"
+tar xzf conftest_${LATEST_VERSION}_Linux_x86_64.tar.gz
+mv conftest /usr/local/bin
+
+
+Task 03:
+For /root/kubernetes-devops-security/Dockerfile run Dockerfile Security Checks using OPA Rego Policies with conftest.
+
+Solution
+Run the Dockerfile Security Checks for /root/kubernetes-devops-security/Dockerfile using OPA Rego Policies with conftest:
+conftest test --policy /root/kubernetes-devops-security/opa-docker-security.rego /root/kubernetes-devops-security/Dockerfile
+
+Two tests should fail:
+FAIL - /root/kubernetes-devops-security/Dockerfile - main - Line 0: use a trusted base image
+FAIL - /root/kubernetes-devops-security/Dockerfile - main - Line 4: Use COPY instead of ADD
+
+
+Task 04:
+As of now you have run OPA conftest for your Dockerfile manually.
+Now, modify the Vulnerability Scan - Docker stage to add OPA Conftest step to test the Dockerfile within your pipeline.
+The pipeline should fail as there are two issues with the Dockerfile
+
+Solution
+stage('Vulnerability Scan - Docker') {
+      steps {
+        parallel(
+          "Dependency Scan": {
+            sh "mvn dependency-check:check"
+          },
+          "Trivy Scan": {
+            sh "bash trivy-docker-image-scan.sh"
+          },
+          "OPA Conftest": {
+            sh "/usr/local/bin/conftest test --policy opa-docker-security.rego Dockerfile"
+          }
+        )
+      }
+    }
+
+
+Task 05:
+As per the suggestions given by OPA conftest fix the Dockerfile, and push your changes.
+Make sure the pipeline passes this time.
+Note: For now we want to use adoptopenjdk/openjdk8:alpine-slim base docker image so to fix use trusted base image issue, comment the whole # Only use trusted base images section in opa-docker-security.rego file. The section would look like:
+# Only use trusted base images
+#deny[msg] {
+#    input[i].Cmd == "from"
+#    val := split(input[i].Value[0], "/")
+#    count(val) > 1
+#    msg = sprintf("Line %d: use a trusted base image", [i])
+#}
+
+Solution
+Update the Dockerfile and replace ADD with COPY.
+Change:
+ADD ${JAR_FILE} /home/devsecops/app.jar
+To:
+COPY ${JAR_FILE} /home/devsecops/app.jar
+
+
+Task 06:
+We have defined some policies in opa-k8s-security.rego file to test the k8s_deployment_service.yaml file.
+Add a new stage (preferably under Docker Build and Push) to test the k8s template through OPA conftest policies defined in opa-k8s-security.rego. Name the stage as per your choice.
+
+Solution
+Update the Jenkinsfile to add a new stage just below the Docker Build and Push stage as shown below:
+stage('Vulnerability Scan - Kubernetes') {
+      steps {
+        sh '/usr/local/bin/conftest test --policy opa-k8s-security.rego k8s_deployment_service.yaml'
+      }
+    }
+
+
+Task 07:
+As per the results given by the conftest, fix the k8s template, so that the conftest passes all the policies which are defined in opa-k8s-security.rego file.
+The pipeline build must pass now, however the PODs might stuck in pending or error state, we will fix this in the next question.
+
+Solution
+Modify the k8s template as below:
+spec:
+  containers:
+  - image: REPLACE_ME
+    name: devsecops-container
+    securityContext:
+      runAsNonRoot: true
+
+
+Task 08:
+Fix the remaining issues in the template now and make sure that the PODs are in running state after the deployment.
+
+Solution
+Modify the k8s template as below:
+spec:
+  containers:
+  - image: REPLACE_ME
+    name: devsecops-container
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 999

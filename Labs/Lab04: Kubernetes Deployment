@@ -1,0 +1,48 @@
+Task 01:
+There is a k8s_deployment_service.yaml template under the root of the repository. It will be used to deploy the application stack on the Kubernetes cluster, in this template you will find that there is a placeholder (REPLACE_ME) for the image value.
+Append the Jenkinsfile to add another stage to update this template with the correct image (using a command like sed) you are building during this pipeline and then apply this template within the same pipeline. So ultimately you should be able to access the application using DevSecOps App button on the top bar.
+
+Notes:
+Docker is already installed on the Jenkins server and your pipeline should be able to push the image to the docker registry without any authentication.
+kubectl utility is already installed and configured on the Jenkins server and your pipeline should be able to apply the template on the cluster without any issues.
+
+Solution:
+pipeline {
+  agent any
+
+  stages {
+
+    stage('Build Artifact - Maven') {
+      steps {
+        sh "mvn clean package -DskipTests=true"
+        archive 'target/*.jar'
+      }
+    }
+
+    stage('Unit Tests - JUnit and Jacoco') {
+      steps {
+        sh "mvn test"
+      }
+      post {
+        always {
+          junit 'target/surefire-reports/*.xml'
+          jacoco execPattern: 'target/jacoco.exec'
+        }
+      }
+    }
+
+    stage('Docker image build and push') {
+      steps {
+        sh 'docker build -t docker-registry:5000/java-app:latest .'
+        sh 'docker push docker-registry:5000/java-app:latest'
+       }
+     }
+
+    stage('Kubernetes Deployment - DEV') {
+      steps {
+        sh "sed -i 's#REPLACE_ME#docker-registry:5000/java-app:latest#g' k8s_deployment_service.yaml"
+        sh "kubectl apply -f k8s_deployment_service.yaml"
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+Task 01:
+There is a Dockerfile under the root of the repository which we will use to build an image for this spring boot application. Append the Jenkinsfile to add another stage to build a docker image for this application.
+The image name should be docker-registry:5000/java-app and the tag should be latest.
+Notes: Docker is already installed on the Jenkins server.
+
+Solution:
+pipeline {
+  agent any
+
+  stages {
+
+    stage('Build Artifact - Maven') {
+      steps {
+        sh "mvn clean package -DskipTests=true"
+        archive 'target/*.jar'
+      }
+    }
+
+    stage('Unit Tests - JUnit and Jacoco') {
+      steps {
+        sh "mvn test"
+      }
+      post {
+        always {
+          junit 'target/surefire-reports/*.xml'
+          jacoco execPattern: 'target/jacoco.exec'
+        }
+      }
+    }
+
+    stage('Docker image build and push') {
+      steps {
+        sh 'docker build -t docker-registry:5000/java-app:latest .'
+      }
+    }
+  }
+} 
+
+
+Task 02:
+Now, modify the Jenkinsfile to update the stage you just added so that the pipeline pushes the built docker image to docker-registry:5000/java-app registry.
+Notes: Your pipeline should be able to push the image to the mentioned docker registry without any authentication.
+
+Solution:
+stage('Docker image build and push') {
+  steps {
+    sh 'docker build -t docker-registry:5000/java-app:latest .'
+    sh 'docker push docker-registry:5000/java-app:latest'
+   }
+ }

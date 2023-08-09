@@ -1,0 +1,42 @@
+Task 01:
+Add a stage (preferably under Mutation Tests - PIT stage) to run the Vulnerability Tests using dependency-check plugin and name it as per your choice.
+In this same stage, add a post field to utilise the owasp-dependency-check plugin to generate the tests report.
+
+Solution
+Add the following stage just below Mutation Tests - PIT stage in Jenkinsfile:
+
+stage('Vulnerability Scan - Docker ') {
+      steps {
+        sh "mvn dependency-check:check"
+      }
+      post {
+        always {
+          dependencyCheckPublisher pattern: 'target/dependency-check-report.xml'
+        }
+      }
+    }
+
+
+Task 02:
+Let us now work on mitigating some of the vulnerabilities that were detected. Let's update the spring boot release version to 2.3.12.
+
+Solution
+Open the pom.xml file in VS Code editor and change the spring-boot-starter-parent version to 2.3.12.
+Update the release version as follows:
+
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.3.12.RELEASE</version>
+
+
+
+Task 03:
+You must have noticed that there are still a couple of vulnerabilities that have been detected and that the Jenkins job is still failing.
+To pass the build, update the failBuildOnCVSS to 45.
+Please note that this is just a demo application, so we will not fix all vulnerabilities. You may have to fix as many vulnerabilities as possible in real-world scenarios.
+
+Solution
+Open the pom.xml file in VsCode editor and under Dependency Check Plugin change the failBuildOnCVSS to 45.
+
+<failBuildOnCVSS>45</failBuildOnCVSS>

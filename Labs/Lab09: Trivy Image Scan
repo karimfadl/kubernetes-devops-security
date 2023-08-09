@@ -1,0 +1,86 @@
+Task 01:
+Install the trivy vulnerability scanner on controlplane host.
+
+Solution
+#Add the trivy-repo
+sudo apt-get update
+sudo apt-get -y install wget apt-transport-https gnupg lsb-release
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+
+#Update Repo and Install trivy
+sudo apt-get update
+sudo apt-get install trivy -y
+
+
+Task 02:
+We have a script called trivy-docker-image-scan.sh that can be used to run a vulnerability scan on the base docker image that we are using in the Dockerfile for our project. Execute this script from kubernetes-devops-security directory.
+
+Solution
+cd /root/kubernetes-devops-security
+bash trivy-docker-image-scan.sh
+
+
+Task 03:
+So far you have executed the trivy-docker-image-scan.sh script manually. However, we want to run it as a part of the pipeline.
+We are running the dependency check in the Vulnerability Scan - Docker stage of our pipeline.
+Update this stage and add a step to run the Trivy scan script. You can run these steps in parallel since these are independent of each other.
+
+Solution
+Open Jenkinsfile in VsCode and make the necessary changes so that the Vulnerability Scan - Docker pipeline stage looks like as below.
+
+stage('Vulnerability Scan - Docker') {
+      steps {
+        parallel(
+          "Dependency Scan": {
+            sh "mvn dependency-check:check"
+          },
+          "Trivy Scan": {
+            sh "bash trivy-docker-image-scan.sh"
+          }
+        )
+      }
+    }
+
+
+Task 04:
+You might have noticed that Trivy found couple of vulnerabilities and yet, the Jenkins job passed.
+Modify the /root/kubernetes-devops-security/trivy-docker-image-scan.sh script and make sure Jenkins job fails if Trivy finds any vulnerability with the severity of critical.
+Also, it must throw the error message:
+Image scanning failed. Vulnerabilities found
+If NO critical vulerabilities are detected, it should display a success message:
+Image scanning passed. No CRITICAL vulnerabilities found
+
+Solution
+Make the necessary changes in /root/kubernetes-devops-security/trivy-docker-image-scan.sh script, the final script would look something like as below:
+
+#!/bin/bash
+
+dockerImageName=$(awk 'NR==1 {print $2}' Dockerfile)
+echo $dockerImageName
+
+docker run --rm -v /tmp/.cache:/root/.cache/ aquasec/trivy:0.17.2 -q image --exit-code 0 --severity HIGH --light $dockerImageName
+docker run --rm -v /tmp/.cache:/root/.cache/ aquasec/trivy:0.17.2 -q image --exit-code 1 --severity CRITICAL --light $dockerImageName
+
+    # Trivy scan result processing
+    exit_code=$?
+    echo "Exit Code : $exit_code"
+
+    # Check scan results
+    if [[ "${exit_code}" == 1 ]]; then
+        echo "Image scanning failed. Vulnerabilities found"
+        exit 1;
+    else
+        echo "Image scanning passed. No CRITICAL vulnerabilities found"
+    fi;
+
+
+Task 05:
+As per Trivy scan results, we found that there are serveral vulnerabilities in our base docker image.
+Let's update the base docker Image to adoptopenjdk/openjdk8:alpine-slim.
+
+Solution
+Make the necessary changes in /root/kubernetes-devops-security/Dockerfile as below:
+FROM openjdk:8-jdk-alpine
+to
+FROM adoptopenjdk/openjdk8:alpine-slim

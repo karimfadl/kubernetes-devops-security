@@ -1,0 +1,74 @@
+Task 01 :
+Install Jenkins, docker and maven packages on the devsecops machine.
+This machine is running the Centos 8 distribution. Use the yum package manager to install the appropriate packages.
+Also, when required, you can use the sudo command to elevate to the root user privileges
+
+Solution
+
+Jenkins Installation Steps:
+sudo yum install yum-utils epel-release -y
+sudo yum install java wget -y
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo --no-check-certificate
+sudo rpm --import http://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+sudo yum install jenkins -y
+
+Docker Installation Steps:
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing
+
+Maven Installation Step:
+sudo yum install maven -y
+
+
+Task 02:
+Configure Jenkins to run on port 8090 instead of the default port 8080. Also
+start/enable Jenkins and docker services.
+Make sure to complete the Jenkins installation from the UI and to create the admin user as per the details mentioned below:
+Username: admin
+Password: TheJ@nkin#321
+Full name: Admin User
+E-mail address: admin@devsecops.com
+Note: Once Jenkins is installed and running on the mentioned port, you can access the UI using Jenkins button on the top bar.
+
+Solution
+Configure Jenkins to use port 8090 by making changes in /lib/systemd/system/jenkins.service file. Change the below line:
+Environment="JENKINS_PORT=8080"
+             to
+Environment="JENKINS_PORT=8090"
+
+
+Start and enable Jenkins and Docker services.
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+sudo systemctl start docker
+sudo systemctl enable docker
+
+
+Complete the Jenkins installation from UI:
+Copy the initial password:
+cat /var/lib/jenkins/secrets/initialAdminPassword
+Create an admin user as per details mentioned in the question.
+
+
+Task 03:
+Now, create a pipeline job called check-version. It should just check and display the versions of the packages you just installed i.e docker and jenkins. You can name the stage as per your choice.
+
+Solution
+pipeline {
+  agent any
+
+  stages {
+
+    stage('jenkins version') {
+      steps {
+        sh "jenkins --version"
+      }
+    }
+
+    stage('docker version') {
+      steps {
+        sh "docker -v"
+      }
+    }
+  }
+}

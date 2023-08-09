@@ -1,0 +1,86 @@
+Task 01:
+Configure a Jenkins pipeline job called devsecops-numeric-application to build this project and to run some tests. Refer the requirements below:
+- Create a Jenkins pipeline job called devsecops-numeric-application. 
+- This job should run the pipeline from kubernetes-devops-security repository's Jenkinsfile.
+- Update the Jenkinsfile in the kubernetes-devops-security repository to add a stage, which should build the artifacts using maven, The command you would need to run is mvn clean package -DskipTests=true
+- remember to save the artifcats (jar files) so that we can download it later.
+- Remember to install all required Jenkins plugins which might be needed for this pipeline.
+
+Solution:
+From the Jenkins UI install the below mentioned plugins:
+Pipeline
+Git
+
+Now, create a pipeline job called devsecops-numeric-application.
+Further from the vscode update the Jenkinsfile as below and push the changes to the origin:
+pipeline {
+  agent any
+  stages {
+    stage('Build Artifact - Maven') {
+      steps {
+        sh "mvn clean package -DskipTests=true"
+        archive 'target/*.jar'
+      }
+    }
+  }
+}
+
+
+Task 02:
+Modify the pipeline that was created in the previous step and add another stage for running unit tests using maven.
+In this same stage add a post field to utilise Jacoco to generate and visualise the tests report in Jenkins.
+
+Solution:
+From the Jenkins UI install the below mentioned plugins:
+Jacoco
+JUnit
+
+From the vscode update the Jenkinsfile as below and push the changes to the origin:
+pipeline {
+  agent any
+  stages {
+    stage('Build Artifact - Maven') {
+      steps {
+        sh "mvn clean package -DskipTests=true"
+        archive 'target/*.jar'
+      }
+    }
+    stage('Unit Tests - JUnit and Jacoco') {
+      steps {
+        sh "mvn test"
+      }
+      post {
+        always {
+          junit 'target/surefire-reports/*.xml'
+          jacoco execPattern: 'target/jacoco.exec'
+        }
+      }
+    }
+  }
+}
+
+
+Task 03:
+Let us now configure a webhook on the Gitea server for the kubernetes-devops-security repository so that any push we make to this repository triggers the Jenkins job automatically.
+Create the required webhook in Gitea for kubernetes-devops-security repository and make the necessary changes in devsecops-numeric-application pipeline job as well.
+
+Solution:
+From the Jenkins UI install the below plugin:
+Gitea
+
+Create a webhook in Gitea as per steps given below:
+- Login into the Gitea server using the given credentials.
+- Go to the kubernetes-devops-security repository.
+- Click on Settings then Webhooks
+- Click on Add Webhook and select Gitea option.
+- In the Target URL box enter the Jenkins URL like this https://8091-port-b5f9272e1c2c4b00.kk-lab-dev.kodekloud.com/gitea-webhook/post (remember to replace this URL with the original URL)
+- Leave the other options as it is and click on Add Webhook
+
+Now login into Jenkins and follow below given steps:
+- Click on Manage Jenkins and then Configure System
+- Look for Gitea Servers option and click on Add->Gitea Server
+- Under Gitea Server Name enter any name like Gitea
+- Under Server URL enter the Gitea server URL like https://8092-port-aa1fa1f8b8d9420e.kk-lab-dev.kodekloud.com (remember to replace the URL with the original URL)
+
+Finally click on Save
+Go to the devsecops-numeric-application job configuration and enable Poll SCM option in pipeline job and save.
