@@ -1,0 +1,127 @@
+Task 01:
+We have written an integration test in integration-test.sh script which is within the repository. This script tests the increment functionality of the application. Add a new stage of any name next to the K8S Deployment - DEV stage.
+The stage must be designed in such a way that - if the integration test fails, then it must rollback the deployment to the previous state. You can use kubectl -n default rollout undo deploy ${deploymentName} to do this.
+The pipeline may fail due to the integration testing. You can ignore it for now.
+integration-test.sh
+#!/bin/bash
+
+#integration-test.sh
+
+sleep 5s
+
+PORT=$(kubectl -n default get svc ${serviceName} -o json | jq .spec.ports[].nodePort)
+
+echo $PORT
+echo $applicationURL:$PORT$applicationURI
+
+if [[ ! -z "$PORT" ]];
+then
+
+    response=$(curl -s $applicationURL:$PORT$applicationURI)
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" $applicationURL:$PORT$applicationURI)
+
+    if [[ "$response" == 100 ]];
+        then
+            echo "Increment Test Passed"
+        else
+            echo "Increment Test Failed"
+            exit 1;
+    fi;
+
+    if [[ "$http_code" == 200 ]];
+        then
+            echo "HTTP Status Code Test Passed"
+        else
+            echo "HTTP Status code is not 200"
+            exit 1;
+    fi;
+
+else
+        echo "The Service does not have a NodePort"
+        exit 1;
+fi;
+
+Solution
+In your Jenkinsfile add a new stage just below the K8S Deployment - DEV stage.
+
+    stage('Integration Tests - DEV') {
+      steps {
+        script {
+          try {
+            sh "bash integration-test.sh"
+            }
+          catch (e) {
+            sh "kubectl -n default rollout undo deploy ${deploymentName}"
+          throw e
+          }
+        }
+      }
+    }
+
+
+Task 02:
+Figure out why the integration testing failed and fix the issue.
+
+Solution
+In Jenkinsfile change applicationURL = "http://controlplane:30010" to applicationURL = "http://controlplane" and push your changes.
+
+
+Taks 03:
+Make the required changes to enable the Springdoc OpenAPI. Once done, you should be able to access the API docs i.e <application-url>/v3/api-docs
+
+Solution
+Update the pom.xml to add the require dependencies:
+
+<dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-ui</artifactId>
+      <version>1.6.9</version>
+</dependency>
+
+
+Task 04:
+We have a script called zap.sh in the repository to run the OWASP ZAP scans. Add a new stage (preferably under Integration Tests stage) to run the ZAP scans and build the pipeline.
+Make sure to enable the HTML reporting as well so that you can see the reports once pipeline completes.
+zap.sh
+#!/bin/bash
+
+PORT=$(kubectl -n default get svc ${serviceName} -o json | jq .spec.ports[].nodePort)
+
+# first run this
+chmod 777 $(pwd)
+echo $(id -u):$(id -g)
+docker run -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-weekly zap-api-scan.py -t $applicationURL:$PORT/v3/api-docs -f openapi -r zap_report.html
+
+exit_code=$?
+
+# HTML Report
+ mkdir -p owasp-zap-report
+ mv zap_report.html owasp-zap-report
+
+
+echo "Exit Code : $exit_code"
+
+ if [[ ${exit_code} -ne 0 ]];  then
+    echo "OWASP ZAP Report has either Low/Medium/High Risk. Please check the HTML Report"
+    exit 1;
+   else
+    echo "OWASP ZAP did not report any Risk"
+ fi;
+
+ Solution
+To enable the HTML reports login into the Jenkins server and go to the devsecops-numeric-application job.
+Click on Pipeline Syntax
+Under Sample Step select publishHTML: Publish HTML reports
+Under HTML directory to archive enter owasp-zap-report
+
+Enter zap_report.html in Index page[s]
+Enter OWASP ZAP HTML Reports under Index page title[s] (Optional) and Report title
+Click on Publishing options and click on Keep past HTML reports and Always link to last build
+Finally click on Generate Pipeline Script
+Copy the generated script and add under pipeline post actions. (change the generated script as needed)
+
+Change:
+post {
+    always {
+      sh "echo 'Test'"
+    }

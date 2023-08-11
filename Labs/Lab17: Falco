@@ -1,0 +1,30 @@
+Task 01:
+Install falco on controlplane host.
+
+Solution
+curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
+cat >>/etc/apt/sources.list.d/falcosecurity.list <<EOF
+deb [signed-by=/usr/share/keyrings/falco-archive-keyring.gpg] https://download.falco.org/packages/deb stable main
+EOF
+apt-get update -y
+apt install -y dkms make linux-headers-$(uname -r)
+apt-get install falco -y
+
+
+Task 02:
+Install helm on controlplane host.
+
+Solution
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+
+
+Task 03:
+Create a namespace called falco.
+We have few customized falco helm charts present locally under /root/charts directory, using these install the falco helm chart in falco namespace.
+Make sure to enable falcosidekick.webui while installing the chart.
+
+Solution
+cd /root/charts
+helm install falco ./falco/ --namespace falco --create-namespace --set falcosidekick.enabled=true --set falcosidekick.webui.enabled=true

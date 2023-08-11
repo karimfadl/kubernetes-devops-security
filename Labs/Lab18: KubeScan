@@ -1,0 +1,74 @@
+Task 01:
+lets deploy the template /root/nginx-risky-pod.yaml which can be used to check the risk assessments.
+Explore the Kube-Scan UI and identify few things.
+What is the risk score kube scan has give to the nginx-risky-pod pod?
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx-risky-pod
+  name: nginx-risky-pod
+spec:
+  volumes:
+    - name: vol
+      hostPath:
+       path: /etc
+  shareProcessNamespace: true
+  containers:
+  - image: nginx
+    name: nginx-risky-pod
+    ports:
+    - containerPort: 80
+    resources: {}
+    securityContext:
+          capabilities:
+            add:
+             - ALL
+          readOnlyRootFilesystem: false
+          allowPrivilegeEscalation: true
+    volumeMounts:
+      - name: vol
+        mountPath: /opt
+        readOnly: true
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: nginx-risky-pod
+  name: risky-pod-svc
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+    nodePort: 30040
+  selector:
+    run: nginx-risky-pod
+
+Solution
+Number of risks equal 6
+
+
+Task 02:
+You deployed the /root/nginx-risky-pod.yaml template in default namespace. But istio is not enabled for this namespace, hence there is no istio sidecar container injected in this pod.
+Let's enable istio for the default namespace, also remember to re-create the nginx-risky-pod pod so that istio sidecar container gets injected into this pod.
+
+Solution
+Execute below command to enable istio for default namespace:
+kubectl label namespace default istio-injection=enabled --overwrite
+
+Re-create the nginx pod:
+kubectl delete -f /root/nginx-risky-pod.yaml
+kubectl apply -f /root/nginx-risky-pod.yaml
+
+Delete the kube-scan pod:
+kubectl delete pod <pod-name> -n kube-scan
+
+risk scorefor nginx-risky-pod pod now = 5
+So we have seen that istio enabled namespace mitigated some of the risks for the nginx-risky-pod.

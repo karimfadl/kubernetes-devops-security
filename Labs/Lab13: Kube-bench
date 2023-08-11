@@ -1,0 +1,64 @@
+Task 01:
+Install kube-bench version 0.4.0 on the controlplane node.
+
+Solution
+Follow below given steps to install kube-bench:
+cd /root/
+wget https://github.com/aquasecurity/kube-bench/releases/download/v0.4.0/kube-bench_0.4.0_linux_amd64.deb
+dpkg -i kube-bench_0.4.0_linux_amd64.deb
+
+
+Task 02:
+Run a kube-bench test for the master/controlplane node.
+
+Solution
+Execute the below command:
+kube-bench master
+
+
+Task 03:
+Run a kube-bench test for the worker node.
+
+Solution
+Execute the below command:
+kube-bench node
+
+
+Task 04:
+Let's try to fix the failed test with ID 4.2.6 for the worker node. Use the remediations steps that have been provided in the report.
+
+Solution
+Run the below given command:
+kube-bench node
+
+Find the Remediations for id 4.2.6, follow the remediations steps as described below:
+Edit /var/lib/kubelet/config.yaml file:
+vi /var/lib/kubelet/config.yaml
+Add protectKernelDefaults: true in the bottom of the file and save.
+
+
+Task 05:
+Run the kube-bench test for the worker node once again, but only for the test with ID 4.2.6. Also save the output in /root/4.2.6.json file in the json format.
+
+Solution
+Execute the below command:
+kube-bench node --check 4.2.6 --json > /root/4.2.6.json
+
+
+Task 06:
+Fix all of the failed tests and make sure the pipeline passes this time.
+
+Solution
+Run the below given command:
+kube-bench master --check 1.2.21,1.2.23,1.2.24
+
+Follow the remediations steps as described below:
+Edit /etc/kubernetes/manifests/kube-apiserver.yaml file:
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+
+Add below given three parameters under container command: section and save the file
+- --profiling=false
+
+- --audit-log-maxbackup=10
+
+- --audit-log-maxage=30

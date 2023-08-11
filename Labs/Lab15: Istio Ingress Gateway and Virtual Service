@@ -1,0 +1,111 @@
+Task 01:
+let's lock down workloads in the istio-system namespace to only accept mutual TLS traffic. There is a template /root/peer-auth.yaml to do the same but its not complete.
+Complete the template and apply the same, make sure to set the mTLS mode to STRICT.
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: devsecops-auth
+  namespace: istio-system
+spec:
+  mtls:
+
+Solution
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: devsecops-auth
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+
+
+Task 02:
+Configure an ingress using an Istio gateway. A template /root/gateway.yaml is already present on the controlplane node, its not complete though so make the required changes in it as per the details mentioned below:
+Configure a Gateway on port 80 for HTTP traffic, the hosts value should be devsecops.com
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: devsecops-gateway
+  namespace: devsecops-istio
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+
+Solution
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: devsecops-gateway
+  namespace: devsecops-istio
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port: 
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+      - "devsecops.com"
+
+
+Task 03:
+Now create a virtual service configuration for the devsecops-svc service containing two route rules that allow traffic for paths / and /increment.
+A template /root/virtual-service.yaml is already present on the controlplane node, its not complete though so make the required missing changes. The destination port and host should be 8080 and devsecops-svc respectively.
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: devsecops-numeric
+  namespace: devsecops-istio
+spec:
+  hosts:
+  - "devsecops.com"
+  gateways:
+  - devsecops-gateway
+  http:
+
+  Solution
+  ---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: devsecops-numeric
+  namespace: devsecops-istio
+spec:
+  hosts:
+  - "devsecops.com"
+  gateways:
+  - devsecops-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /increment
+    - uri:
+        exact: /
+    route:
+    - destination:
+        host: devsecops-svc
+        port:
+          number: 8080
+
+
+Task 04:
+Let's do some checks to see if our gateway and virtual service rules are configured correctly. We can start by testing the / and /increment paths since these have already been configured.
+First lets make sure to set some environment variables using below commands:
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+export SECURE_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
+export TCP_INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="tcp")].nodePort}')
+export INGRESS_HOST=$(kubectl get po -l istio=ingressgateway -n istio-system -o jsonpath='{.items[0].status.hostIP}')
+
+Next, access the devsecops app using curl and hit the allowed paths
+curl -s -HHost:devsecops.com "http://$INGRESS_HOST:$INGRESS_PORT/"
+The above URL should return Kubernetes DevSecOps.
+
+Next, access the devsecops service using curl and hit some other path
+curl -s -HHost:devsecops.com "http://$INGRESS_HOST:$INGRESS_PORT/increment/99"
+The above URL should return 100.

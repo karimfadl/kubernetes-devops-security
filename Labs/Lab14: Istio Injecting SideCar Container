@@ -1,0 +1,41 @@
+Task 01:
+Install istioctl binary on controlplane node.
+
+Solution
+curl -L https://istio.io/downloadIstio | sh -
+cd istio-<version-number>
+cp bin/istioctl /usr/local/bin/
+
+
+Task 02:
+Install istio with demo profile on Kubernetes cluster.
+
+Solution
+cd istio-<version-number>
+istioctl install --set profile=demo -y
+
+
+Task 03:
+Create a namespace called devsecops-istio.
+
+Solution
+kubectl create namespace devsecops-istio
+
+
+Task 04:
+Deploy the /root/node-app.yaml template in devsecops-istio namespace.
+
+Solution
+kubectl apply -f /root/node-app.yaml
+
+
+Task 05:
+Looks like we forgot to enable the istio injection . Hence istio is not enabled for the node-app deployment yet.
+Lets make the required changes so that the istio sidecar container gets injected into the POD under node-app deployment.
+
+Solution
+Enable istio for devsecops-istio namespace:
+kubectl label namespace devsecops-istio istio-injection=enabled
+
+Re-create the POD under node-app deployment.
+kubectl delete pod <pod-name> -n devsecops-istio
