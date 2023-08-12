@@ -1,0 +1,146 @@
+Task 01:
+Helm is already installed on the controlplane host.
+Create a new namespace called vault-devsecops.
+Install vault using helm under the vault-devsecops namespace. Also enable the ui and its service type equals to NodePort.
+Make sure to use chart version 0.17.0.
+
+Solution
+Create a new namespace called vault-devsecops.
+kubectl create namespace vault-devsecops
+
+Add helm hashicorp vault repo
+helm repo add hashicorp https://helm.releases.hashicorp.com
+
+Install vault using helm:
+helm install vault --set='ui.enabled=true' -n vault-devsecops \
+--set='ui.serviceType=NodePort' \
+--set='server.dataStorage.enabled=false' hashicorp/vault --version 0.17.0
+
+
+Task 02:
+Unseal the vault by unsealing at least 3 keys out of 5.
+Make sure after making these changes in container within the vault-0 pod. It should be in ready state i.e 1/1, also the Sealed value is false now.
+Note: Make sure to note down the Initial Root Token
+
+Solution
+Execute into the vault-0 pod with below command:
+kubectl exec -it vault-0 -n vault-devsecops -- sh
+
+Run below command to generate the initial root token:
+vault operator init
+
+When you run the command to generate token, in the output you will get 5 unseal keys. Unseal any of the 3 keys.
+vault operator unseal <key1>
+vault operator unseal <key2>
+vault operator unseal <key3>
+
+Initial Root Token: s.gslFmeaxLMcR7sKn2e4K3wSz
+
+
+Task 03:
+lets enable the secret path devsecops with kv-v2 secret engine
+
+Solution
+Execute into the vault-0 pod with below command:
+kubectl exec -it vault-0 -n vault-devsecops -- sh
+
+Login into the vault with root token as below:
+vault login <root-token>
+
+Enable path as below:
+vault secrets enable -path=devsecops kv-v2
+
+
+Task 03:
+Add a secret named secret-data under devsecops path.
+Please ensure the secret key/pair values should be as below:
+1. username=devsecops
+2. password=skdjD432JDjd
+3. apikey=dgg7B3BaaeBleqE
+
+Solution
+Execute into the vault-0 pod with below command:
+kubectl exec -it vault-0 -n vault-devsecops -- sh
+
+Put the secret values in devsecops path:
+vault kv put devsecops/secret-data username=devsecops password=skdjD432JDjd apikey=dgg7B3BaaeBleqE
+
+
+Task 04:
+Write a policy called devsecops-app which should allow only the read access to the devsecops/secret-data secrets.
+
+Solution
+Execute into the vault-0 pod with below command:
+kubectl exec -it vault-0 -n vault-devsecops -- sh
+
+Create a policy file of any name, let's say /home/vault/policy.hcl:
+path "devsecops/secret-data" {
+capabilities = ["read"]
+}
+
+Write the policy:
+vault policy write devsecops-app /home/vault/policy.hcl
+
+
+Task 05:
+Enable the kubernetes authentication method within vault and also ensure configuration exists that enables vault to talk to the Kubernetes cluster.
+Also configure a role called phpapp to authorize the devsecops-app policy, it should use the devsecops-app service account within the vault-devsecops namespace.
+
+Solution
+Execute into the vault-0 pod with below command:
+kubectl exec -it vault-0 -n vault-devsecops -- sh
+
+Enable the kubernetes authentication method:
+vault auth enable kubernetes
+
+Configure vault to talk to the Kubernetes cluster:
+vault write auth/kubernetes/config \
+token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"  \
+kubernetes_host=https://${KUBERNETES_PORT_443_TCP_ADDR}:443 \
+kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+Configure the required role:
+vault write auth/kubernetes/role/phpapp \
+bound_service_account_names=devsecops-app \
+bound_service_account_namespaces=vault-devsecops \
+policies=devsecops-app \
+ttl=1h
+
+
+Task 07:
+We have the source code of our php-app under /root/vault-php-app directory. It already has a Dockerfile, utilize this to build an image .i.e. vault-app:php.
+Deploy the app using php-app-k8s-deploy.yaml template in the vault-devsecops namespace, make sure the service nodePort is 30050.
+Once done we should be able to access the app using php-app button at the top right of the terminal.
+
+Solution
+Return back to the controlplane host:
+Build docker image.
+cd /root/vault-php-app
+docker build -t vault-app:php .
+
+Add the nodePort 30050.
+vi php-app-k8s-deploy.yaml
+
+Update the service and add nodePort: 30050 under targetPort: 80:
+Apply the template php-app-k8s-deploy.yaml in vault-devsecops namespace.
+kubectl apply -f php-app-k8s-deploy.yaml -n vault-devsecops
+
+
+Task 08:
+It looks like the app is not able to fetch the secrets from the vault still.
+Lets use the patch patch-annotations.yaml provided under /root/vault-php-app directory, update it to add the correct values of the annotations and apply the same in php deployment which you created in the last question.
+
+Solution
+Edit the patch-annotations.yaml file and make the required changes so that it looks like as below:
+spec:
+  template:
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/agent-inject-secret-username: "devsecops/secret-data"
+        vault.hashicorp.com/agent-inject-secret-password: "devsecops/secret-data"
+        vault.hashicorp.com/agent-inject-secret-apikey: "devsecops/secret-data"
+        vault.hashicorp.com/role: "phpapp"
+
+Apply the patch:
+kubectl patch deploy php -p "$(cat patch-annotations.yaml)" -n vault-devsecops
